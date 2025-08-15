@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Indoo Admin</title>
+  
+  <!-- Carrega Tailwind CSS via CDN para estilização -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Carrega a biblioteca Chart.js para os gráficos -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Estilos CSS customizados -->
+  <style>
+    /* Estilo para a fonte Inter */
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    /* Classe para a mensagem de feedback */
+    .message-box {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 1rem 2rem;
+      border-radius: 9999px; /* rounded-full */
+      color: #1f2937; /* text-gray-800 */
+      font-weight: 600; /* font-semibold */
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      z-index: 1000;
+      animation: fadein 0.5s, fadeout 0.5s 2.5s;
+    }
+    @keyframes fadein {
+      from { top: 0; opacity: 0; }
+      to { top: 20px; opacity: 1; }
+    }
+    @keyframes fadeout {
+      from { top: 20px; opacity: 1; }
+      to { top: 0; opacity: 0; }
+    }
+
+    /* Estilos para o modal de edição */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1001;
+      visibility: hidden;
+      opacity: 0;
+      transition: visibility 0s, opacity 0.2s linear;
+    }
+    .modal.show {
+      visibility: visible;
+      opacity: 1;
+    }
+    .modal-content {
+      background-color: white;
+      padding: 2rem;
+      border-radius: 1rem;
+      width: 90%;
+      max-width: 600px;
+      position: relative;
+      max-height: 90vh; /* Limita a altura do modal para telas menores */
+      overflow-y: auto; /* Adiciona scroll se o conteúdo for grande */
+    }
+  </style>
+</head>
+
+<body class="bg-gray-100">
+
+  <!-- Container principal onde a aplicação será renderizada -->
+  <div id="app-root"></div>
+
+  <!-- Script JavaScript principal da aplicação -->
+  <script>
+    //===========================================================
+    // ESTADO DA APLICAÇÃO
+    //===========================================================
+    let isLoggedIn = false;
+    let activeTab = 'dashboard';
+
+    // Credenciais de login
+    const loginCredentials = {
+      email: 'lisboa@indoo.com.br',
+      password: 'agosto22'
+    };
+
+    // Dados de exemplo (simulando um banco de dados)
+    let establishments = [
+      { id: 'est_1', code: 'C001', name: 'Pizzaria Quatro Estações', status: 'Aprovado', city: 'São Paulo', category: 'Restaurante', products: 'Pizza Calabresa, Pizza Portuguesa, Refrigerante' },
+      { id: 'est_2', code: 'C002', name: 'Burguer King', status: 'Aprovado', city: 'São Paulo', category: 'Restaurante', products: 'Whopper, Batata Frita, Milkshake' },
+      { id: 'est_3', code: 'C003', name: 'Cantina Italiana', status: 'Pendente', city: 'Rio de Janeiro', category: 'Restaurante', products: 'Lasanha, Carbonara, Vinho' },
+      { id: 'est_4', code: 'C004', name: 'Bar do Zé', status: 'Aprovado', city: 'Rio de Janeiro', category: 'Bar', products: 'Cerveja, Petiscos, Caipirinha' },
+      { id: 'est_5', code: 'C005', name: 'Supermercado Bom Preço', status: 'Pendente', city: 'São Paulo', category: 'Supermercado', products: 'Diversos' },
+      { id: 'est_6', code: 'C006', name: 'Açai Delícia', status: 'Aprovado', city: 'Belo Horizonte', category: 'Sorveteria', products: 'Açaí, Sorvete, Suco' },
+    ];
+    // Dados de usuários simulados, agora mais detalhados
+    let users = [
+      {
+        id: 'user_1',
+        fullName: 'João da Silva',
+        email: 'joao@example.com',
+        cpf: '123.456.789-01',
+        birthDate: '1990-05-15',
+        address: 'Rua A, 123, São Paulo - SP',
+        ip: '192.168.1.100',
+        phone: '(11) 98765-4321',
+        ordersHistory: [
+          { establishmentName: 'Pizzaria Quatro Estações', value: 55.50, date: '2024-07-20' },
+          { establishmentName: 'Bar do Zé', value: 45.00, date: '2024-07-22' }
+        ]
+      },
+      {
+        id: 'user_2',
+        fullName: 'Maria Souza',
+        email: 'maria@example.com',
+        cpf: '987.654.321-02',
+        birthDate: '1988-11-20',
+        address: 'Av. B, 456, Rio de Janeiro - RJ',
+        ip: '192.168.1.101',
+        phone: '(21) 99876-5432',
+        ordersHistory: [
+          { establishmentName: 'Burguer King', value: 78.90, date: '2024-07-18' }
+        ]
+      },
+      {
+        id: 'user_3',
+        fullName: 'Pedro Santos',
+        email: 'pedro@example.com',
+        cpf: '111.222.333-44',
+        birthDate: '1995-03-10',
+        address: 'Rua C, 789, Belo Horizonte - MG',
+        ip: '192.168.1.102',
+        phone: '(31) 97654-3210',
+        ordersHistory: [
+          { establishmentName: 'Açai Delícia', value: 25.00, date: '2024-07-25' },
+          { establishmentName: 'Supermercado Bom Preço', value: 120.30, date: '2024-07-26' }
+        ]
+      },
+    ];
+    const cities = ['São Paulo', 'Rio de Janeiro', 'Belo Horizonte'];
+    const categories = ['Restaurante', 'Bar', 'Supermercado', 'Sorveteria'];
+
+    // Dados simulados para o Dashboard (mês e ano)
+    const simulatedData = {
+      '2024-07': {
+        totalRevenue: 15000,
+        establishmentsCount: 15,
+        usersCount: 50,
+        ordersCount: 350,
+        monthlyRevenue: [4000, 3000, 5000, 2780, 1890, 2390],
+      },
+      '2024-08': {
+        totalRevenue: 18500,
+        establishmentsCount: 18,
+        usersCount: 65,
+        ordersCount: 410,
+        monthlyRevenue: [5000, 4500, 6000, 3500, 2200, 3300],
+      },
+      '2024-09': {
+        totalRevenue: 22000,
+        establishmentsCount: 20,
+        usersCount: 80,
+        ordersCount: 500,
+        monthlyRevenue: [6000, 5500, 7000, 4000, 3000, 4000],
+      },
+    };
+    
+    // Dados simulados para o gráfico de estabelecimentos por cidade
+    const establishmentRevenueData = {
+      'São Paulo': [
+        { name: 'Pizzaria Quatro Estações', receita: 4000 },
+        { name: 'Burguer King', receita: 3000 },
+      ],
+      'Rio de Janeiro': [
+        { name: 'Cantina Italiana', receita: 2000 },
+        { name: 'Bar do Zé', receita: 3500 },
+      ],
+      'Belo Horizonte': [
+        { name: 'Açai Delícia', receita: 2500 },
+      ],
+    };
+
+    // Variáveis para os gráficos
+    let monthlyRevenueChart = null;
+    let establishmentRevenueChart = null;
+    
+    // Anos disponíveis
+    const availableYears = [2024, 2023];
+
+    // Variáveis para os filtros de estabelecimentos
+    let currentSearchQuery = '';
+    let currentCodeSearchQuery = '';
+    let currentCityFilter = '';
+    let currentCategoryFilter = '';
+    
+    // Variáveis para os filtros de usuários
+    let currentUserSearchQuery = '';
+    
+    //===========================================================
+    // FUNÇÕES DE UTILIDADE
+    //===========================================================
+    
+    // Função para formatar valores como moeda (R$)
+    const formatCurrency = (value) => {
+      return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+      }).format(value);
+    };
+
+    // Função para exibir mensagens de feedback ao usuário (substitui 'alert')
+    const showMessage = (message, type = 'success') => {
+      const messageBox = document.createElement('div');
+      messageBox.textContent = message;
+      messageBox.className = `message-box ${type === 'success' ? 'bg-[#FFC000]' : 'bg-red-500 text-white'}`;
+      document.body.appendChild(messageBox);
+      setTimeout(() => {
+        messageBox.remove();
+      }, 3000);
+    };
+
+    //===========================================================
+    // FUNÇÕES DE RENDERIZAÇÃO DE COMPONENTES
+    //===========================================================
+
+    // Renderiza a página de login
+    const renderLoginPage = () => {
+      const appRoot = document.getElementById('app-root');
+      appRoot.innerHTML = `
+        <div class="flex items-center justify-center min-h-screen p-4">
+          <div class="bg-white p-8 rounded-xl shadow-xl w-full max-w-md">
+            <h2 class="text-3xl font-bold text-center text-gray-800 mb-6">Login Admin Indoo</h2>
+            <form id="login-form">
+              <div class="mb-4">
+                <label class="block text-gray-700 font-medium mb-2" for="email">E-mail</label>
+                <input
+                  class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]"
+                  type="email"
+                  id="email"
+                  placeholder="admin@indoo.com"
+                  value="lisboa@indoo.com.br"
+                />
+              </div>
+              <div class="mb-6">
+                <label class="block text-gray-700 font-medium mb-2" for="password">Senha</label>
+                <input
+                  class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]"
+                  type="password"
+                  id="password"
+                  placeholder="********"
+                  value="agosto22"
+                />
+              </div>
+              <button
+                type="submit"
+                class="w-full bg-[#FFC000] text-gray-800 font-bold py-3 rounded-lg shadow-md hover:bg-yellow-500 transition-colors"
+              >
+                Entrar
+              </button>
+            </form>
+          </div>
+        </div>
+      `;
+
+      // Adiciona o event listener para o formulário de login
+      document.getElementById('login-form').addEventListener('submit', handleLogin);
+    };
+
+    // Renderiza a página do dashboard com base na aba ativa
+    const renderDashboard = () => {
+      const appRoot = document.getElementById('app-root');
+      appRoot.innerHTML = `
+        <div class="flex h-screen bg-gray-100 font-sans text-gray-800">
+          <!-- Sidebar de Navegação -->
+          <aside class="w-64 bg-gray-900 text-white p-6 flex flex-col rounded-tr-3xl rounded-br-3xl shadow-2xl">
+            <div class="flex items-center mb-10">
+              <h1 class="text-3xl font-bold text-[#FFC000]">Indoo Admin</h1>
+            </div>
+            <nav class="flex-grow">
+              <ul>
+                <li class="mb-2">
+                  <button id="tab-dashboard" class="flex items-center w-full p-3 rounded-lg font-semibold transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class="w-5 h-5 mr-3"><path d="M3 3v18h18" /><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.6" /></svg>
+                    Dashboard
+                  </button>
+                </li>
+                <li class="mb-2">
+                  <button id="tab-establishments" class="flex items-center w-full p-3 rounded-lg font-semibold transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class="w-5 h-5 mr-3"><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><line x1="12" y1="21" x2="12" y2="15" /><line x1="3" y1="9" x2="21" y2="9" /><path d="M12 15h12" /></svg>
+                    Estabelecimentos
+                  </button>
+                </li>
+                <li class="mb-2">
+                  <button id="tab-users" class="flex items-center w-full p-3 rounded-lg font-semibold transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class="w-5 h-5 mr-3"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" /></svg>
+                    Usuários
+                  </button>
+                </li>
+                <li class="mb-2">
+                  <button id="tab-payments" class="flex items-center w-full p-3 rounded-lg font-semibold transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class="w-5 h-5 mr-3"><rect x="2" y="7" width="20" height="15" rx="2" ry="2" /><path d="M16 11V7" /><line x1="12" y1="7" x2="12" y2="17" /><line x1="8" y1="7" x2="8" y2="17" /><line x1="2" y1="12" x2="22" y2="12" /></svg>
+                    Pagamentos
+                  </button>
+                </li>
+              </ul>
+            </nav>
+            <button id="logout-button" class="bg-red-500 text-white font-semibold py-3 rounded-lg shadow-md hover:bg-red-600 transition-colors">
+              Sair
+            </button>
+          </aside>
+
+          <!-- Conteúdo Principal -->
+          <main class="flex-1 overflow-y-auto p-8">
+            <h1 id="main-title" class="text-4xl font-bold text-gray-900 mb-8"></h1>
+            <div id="content-container" class="bg-white p-6 rounded-2xl shadow-lg">
+              <!-- Conteúdo da aba ativa será injetado aqui -->
+            </div>
+          </main>
+        </div>
+      `;
+      // Adiciona event listeners para os botões da barra lateral
+      document.getElementById('logout-button').addEventListener('click', handleLogout);
+      document.getElementById('tab-dashboard').addEventListener('click', () => switchTab('dashboard'));
+      document.getElementById('tab-establishments').addEventListener('click', () => switchTab('establishments'));
+      document.getElementById('tab-users').addEventListener('click', () => switchTab('users'));
+      document.getElementById('tab-payments').addEventListener('click', () => switchTab('payments'));
+
+      renderActiveTab();
+    };
+
+    // Renderiza o conteúdo da aba ativa
+    const renderActiveTab = () => {
+      const mainTitle = document.getElementById('main-title');
+      const contentContainer = document.getElementById('content-container');
+      const navButtons = document.querySelectorAll('aside button');
+
+      // Remove a classe ativa de todos os botões
+      navButtons.forEach(btn => {
+        btn.classList.remove('bg-[#FFC000]', 'text-gray-900');
+        btn.classList.add('text-gray-300', 'hover:bg-gray-800');
+      });
+
+      // Adiciona a classe ativa ao botão da aba atual
+      const activeButton = document.getElementById(`tab-${activeTab}`);
+      if (activeButton) {
+        activeButton.classList.remove('text-gray-300', 'hover:bg-gray-800');
+        activeButton.classList.add('bg-[#FFC000]', 'text-gray-900');
+      }
+
+      // Limpa o conteúdo e o título antes de renderizar a nova aba
+      contentContainer.innerHTML = '';
+      mainTitle.textContent = '';
+      
+      switch (activeTab) {
+        case 'dashboard':
+          mainTitle.textContent = 'Dashboard';
+          renderDashboardHome(contentContainer);
+          break;
+        case 'establishments':
+          mainTitle.textContent = 'Gerenciar Estabelecimentos';
+          renderEstablishmentsPage(contentContainer);
+          break;
+        case 'users':
+          mainTitle.textContent = 'Gerenciar Usuários';
+          renderUsersPage(contentContainer);
+          break;
+        case 'payments':
+          mainTitle.textContent = 'Gerenciar Pagamentos';
+          renderPaymentsPage(contentContainer);
+          break;
+      }
+    };
+
+    // Renderiza a página inicial do Dashboard
+    const renderDashboardHome = (container) => {
+      const now = new Date();
+      const currentMonth = (now.getMonth() + 1).toString().padStart(2, '0');
+      const currentYear = now.getFullYear();
+
+      // Funções para gerar as opções dos seletores
+      const generateMonthOptions = () => {
+        const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+        return months.map((month, index) => `<option value="${(index + 1).toString().padStart(2, '0')}" ${currentMonth == (index + 1).toString().padStart(2, '0') ? 'selected' : ''}>${month}</option>`).join('');
+      };
+      const generateYearOptions = () => {
+        return availableYears.map(year => `<option value="${year}" ${currentYear == year ? 'selected' : ''}>${year}</option>`).join('');
+      };
+
+      container.innerHTML = `
+        <!-- Filtros Globais para Dados Gerais -->
+        <div class="flex flex-wrap gap-4 mb-8 items-center">
+          <h3 class="text-2xl font-bold w-full md:w-auto">Dados Gerais</h3>
+          <div class="flex gap-2 items-center">
+            <label for="general-data-month" class="text-gray-600">Mês:</label>
+            <select id="general-data-month" class="p-2 border rounded-lg">
+              ${generateMonthOptions()}
+            </select>
+          </div>
+          <div class="flex gap-2 items-center">
+            <label for="general-data-year" class="text-gray-600">Ano:</label>
+            <select id="general-data-year" class="p-2 border rounded-lg">
+              ${generateYearOptions()}
+            </select>
+          </div>
+        </div>
+        
+        <!-- Cards de Dados Gerais -->
+        <div id="general-data-cards" class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+          <!-- Conteúdo será injetado via JS -->
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+          <!-- Receita Mensal -->
+          <div class="bg-gray-50 p-6 rounded-lg shadow-inner">
+            <h3 class="text-xl font-bold mb-4">Receita Mensal</h3>
+            <div class="flex flex-wrap gap-4 mb-4">
+              <div class="flex gap-2 items-center">
+                <label for="revenue-chart-month" class="text-gray-600">Mês:</label>
+                <select id="revenue-chart-month" class="p-2 border rounded-lg">
+                  ${generateMonthOptions()}
+                </select>
+              </div>
+              <div class="flex gap-2 items-center">
+                <label for="revenue-chart-year" class="text-gray-600">Ano:</label>
+                <select id="revenue-chart-year" class="p-2 border rounded-lg">
+                  ${generateYearOptions()}
+                </select>
+              </div>
+            </div>
+            <div class="w-full h-80">
+              <canvas id="monthlyRevenueChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Receita por Estabelecimento -->
+          <div class="bg-gray-50 p-6 rounded-lg shadow-inner">
+            <h3 class="text-xl font-bold mb-4">Receita por Estabelecimento</h3>
+            <div class="flex flex-wrap gap-4 mb-4">
+              <div class="flex gap-2 items-center">
+                <label for="establishment-city" class="text-gray-600">Cidade:</label>
+                <select id="establishment-city" class="p-2 border rounded-lg">
+                  <option value="">Todas as Cidades</option>
+                  ${cities.map(city => `<option value="${city}">${city}</option>`).join('')}
+                </select>
+              </div>
+              <div class="flex gap-2 items-center">
+                <label for="establishment-list" class="text-gray-600">Estabelecimento:</label>
+                <select id="establishment-list" class="p-2 border rounded-lg">
+                  <option value="">Todos os Estabelecimentos</option>
+                </select>
+              </div>
+            </div>
+            <div class="w-full h-80">
+              <canvas id="establishmentRevenueChart"></canvas>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Inicializa os dados e gráficos
+      updateGeneralData();
+      updateMonthlyRevenueChart();
+      updateEstablishmentRevenueChart();
+      
+      // Adiciona event listeners para os seletores
+      document.getElementById('general-data-month').addEventListener('change', updateGeneralData);
+      document.getElementById('general-data-year').addEventListener('change', updateGeneralData);
+
+      document.getElementById('revenue-chart-month').addEventListener('change', updateMonthlyRevenueChart);
+      document.getElementById('revenue-chart-year').addEventListener('change', updateMonthlyRevenueChart);
+
+      document.getElementById('establishment-city').addEventListener('change', () => {
+        updateEstablishmentList();
+        updateEstablishmentRevenueChart();
+      });
+      document.getElementById('establishment-list').addEventListener('change', updateEstablishmentRevenueChart);
+    };
+
+    // Função para atualizar os dados gerais
+    const updateGeneralData = () => {
+      const month = document.getElementById('general-data-month').value;
+      const year = document.getElementById('general-data-year').value;
+      const key = `${year}-${month}`;
+      const data = simulatedData[key] || { totalRevenue: 0, establishmentsCount: 0, usersCount: 0, ordersCount: 0 };
+      
+      const container = document.getElementById('general-data-cards');
+      container.innerHTML = `
+        <div class="bg-blue-500 text-white p-6 rounded-lg shadow-md">
+          <h4 class="text-lg font-semibold">Receita Total</h4>
+          <p class="text-4xl font-bold mt-2">${formatCurrency(data.totalRevenue)}</p>
+        </div>
+        <div class="bg-green-500 text-white p-6 rounded-lg shadow-md">
+          <h4 class="text-lg font-semibold">Estabelecimentos Cadastrados</h4>
+          <p class="text-4xl font-bold mt-2">${data.establishmentsCount}</p>
+        </div>
+        <div class="bg-purple-500 text-white p-6 rounded-lg shadow-md">
+          <h4 class="text-lg font-semibold">Usuários Criados</h4>
+          <p class="text-4xl font-bold mt-2">${data.usersCount}</p>
+        </div>
+        <div class="bg-red-500 text-white p-6 rounded-lg shadow-md">
+          <h4 class="text-lg font-semibold">Pedidos Feitos</h4>
+          <p class="text-4xl font-bold mt-2">${data.ordersCount}</p>
+        </div>
+      `;
+    };
+
+    // Função para atualizar a lista de estabelecimentos no seletor
+    const updateEstablishmentList = () => {
+      const city = document.getElementById('establishment-city').value;
+      const establishmentListSelector = document.getElementById('establishment-list');
+      
+      let filteredEstablishments = establishments;
+      if (city) {
+        filteredEstablishments = establishments.filter(e => e.city === city && e.status === 'Aprovado');
+      } else {
+        filteredEstablishments = establishments.filter(e => e.status === 'Aprovado');
+      }
+
+      let options = filteredEstablishments.map(est => `<option value="${est.name}">${est.name}</option>`).join('');
+      establishmentListSelector.innerHTML = `<option value="">Todos os Estabelecimentos</option>${options}`;
+    };
+
+    // Função para atualizar o gráfico de receita mensal
+    const updateMonthlyRevenueChart = () => {
+      const month = document.getElementById('revenue-chart-month').value;
+      const year = document.getElementById('revenue-chart-year').value;
+      const key = `${year}-${month}`;
+      const data = simulatedData[key] ? simulatedData[key].monthlyRevenue : [];
+
+      if (monthlyRevenueChart) monthlyRevenueChart.destroy();
+      const monthlyCtx = document.getElementById('monthlyRevenueChart').getContext('2d');
+      monthlyRevenueChart = new Chart(monthlyCtx, {
+        type: 'line',
+        data: {
+          labels: ['1ª Sem', '2ª Sem', '3ª Sem', '4ª Sem'],
+          datasets: [{
+            label: 'Receita (R$)',
+            data: data,
+            borderColor: '#FFC000',
+            backgroundColor: 'rgba(255, 192, 0, 0.2)',
+            tension: 0.4,
+            fill: true,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+        }
+      });
+    };
+
+    // Função para atualizar o gráfico de receita por estabelecimento
+    const updateEstablishmentRevenueChart = () => {
+      const city = document.getElementById('establishment-city').value;
+      const establishmentName = document.getElementById('establishment-list').value;
+      
+      let dataToDisplay = [];
+      let labelsToDisplay = [];
+
+      if (establishmentName) {
+        // Exibir dados de um estabelecimento específico
+        const cityData = establishmentRevenueData[city] || Object.values(establishmentRevenueData).flat();
+        const specificEstablishment = cityData.find(e => e.name === establishmentName);
+        if (specificEstablishment) {
+          dataToDisplay = [specificEstablishment.receita];
+          labelsToDisplay = [specificEstablishment.name];
+        }
+      } else if (city) {
+        // Exibir dados de todos os estabelecimentos na cidade
+        const cityData = establishmentRevenueData[city] || [];
+        dataToDisplay = cityData.map(d => d.receita);
+        labelsToDisplay = cityData.map(d => d.name);
+      } else {
+        // Exibir dados de todos os estabelecimentos em todas as cidades
+        const allData = Object.values(establishmentRevenueData).flat();
+        dataToDisplay = allData.map(d => d.receita);
+        labelsToDisplay = allData.map(d => d.name);
+      }
+
+      if (establishmentRevenueChart) establishmentRevenueChart.destroy();
+      const establishmentCtx = document.getElementById('establishmentRevenueChart').getContext('2d');
+      establishmentRevenueChart = new Chart(establishmentCtx, {
+        type: 'bar',
+        data: {
+          labels: labelsToDisplay,
+          datasets: [{
+            label: 'Receita (R$)',
+            data: dataToDisplay,
+            backgroundColor: '#FFC000',
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+        }
+      });
+    };
+
+    // Função para renderizar a página de gerenciamento de estabelecimentos
+    const renderEstablishmentsPage = (container) => {
+      container.innerHTML = `
+        <!-- Modal de Edição (inicialmente escondido) -->
+        <div id="edit-establishment-modal" class="modal">
+          <div class="modal-content">
+            <h3 class="text-2xl font-bold mb-4">Editar Estabelecimento</h3>
+            <form id="edit-establishment-form">
+              <input type="hidden" id="edit-id" />
+              <div class="mb-4">
+                <label class="block text-gray-700 font-medium mb-2" for="edit-name">Nome</label>
+                <input type="text" id="edit-name" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]" required>
+              </div>
+              <div class="mb-4">
+                <label class="block text-gray-700 font-medium mb-2" for="edit-category">Categoria</label>
+                <select id="edit-category" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]" required>
+                  ${categories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
+                </select>
+              </div>
+              <div class="mb-4">
+                <label class="block text-gray-700 font-medium mb-2" for="edit-city">Cidade</label>
+                <select id="edit-city" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]" required>
+                  ${cities.map(city => `<option value="${city}">${city}</option>`).join('')}
+                </select>
+              </div>
+              <div class="mb-4">
+                <label class="block text-gray-700 font-medium mb-2" for="edit-products">Produtos (separados por vírgula)</label>
+                <textarea id="edit-products" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]" rows="3"></textarea>
+              </div>
+              <div class="flex justify-end gap-4 mt-6">
+                <button type="button" id="close-establishment-modal-btn" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors">Cancelar</button>
+                <button type="submit" class="bg-[#FFC000] text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-yellow-500 transition-colors">Salvar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-2xl font-bold mb-4">Gerenciar Estabelecimentos</h3>
+          <!-- Filtros da Tabela -->
+          <div class="flex flex-wrap gap-4 mb-6 items-center">
+            <!-- Campo de busca por código -->
+            <input type="text" id="establishment-code-search" placeholder="Buscar por código..." class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000] w-36">
+            <input type="text" id="establishment-search" placeholder="Buscar por nome..." class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000] flex-1 min-w-[200px]">
+            <select id="establishment-city-filter" class="p-2 border rounded-lg">
+              <option value="">Todas as Cidades</option>
+              ${cities.map(city => `<option value="${city}">${city}</option>`).join('')}
+            </select>
+            <select id="establishment-category-filter" class="p-2 border rounded-lg">
+              <option value="">Todas as Categorias</option>
+              ${categories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
+            </select>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full bg-white rounded-lg shadow-md">
+              <thead>
+                <tr class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
+                  <th class="py-3 px-6 text-left">Código</th>
+                  <th class="py-3 px-6 text-left">Nome</th>
+                  <th class="py-3 px-6 text-left">Categoria</th>
+                  <th class="py-3 px-6 text-left">Cidade</th>
+                  <th class="py-3 px-6 text-left">Status</th>
+                  <th class="py-3 px-6 text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="establishments-table-body" class="text-gray-600 text-sm font-light">
+                <!-- Linhas da tabela serão injetadas via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+      // Preenche a tabela inicialmente e adiciona os event listeners
+      updateEstablishmentTable();
+      addEstablishmentEventListeners();
+    };
+
+    // Função para renderizar a página de gerenciamento de usuários
+    const renderUsersPage = (container) => {
+      container.innerHTML = `
+        <!-- Modal de Edição de Usuário (inicialmente escondido) -->
+        <div id="edit-user-modal" class="modal">
+          <div class="modal-content">
+            <h3 class="text-2xl font-bold mb-4">Editar Usuário</h3>
+            <form id="edit-user-form">
+              <input type="hidden" id="user-edit-id" />
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="mb-4">
+                  <label class="block text-gray-700 font-medium mb-2" for="user-edit-fullName">Nome Completo</label>
+                  <input type="text" id="user-edit-fullName" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]" required>
+                </div>
+                <div class="mb-4">
+                  <label class="block text-gray-700 font-medium mb-2" for="user-edit-email">E-mail</label>
+                  <input type="email" id="user-edit-email" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]" required>
+                </div>
+                <div class="mb-4">
+                  <label class="block text-gray-700 font-medium mb-2" for="user-edit-cpf">CPF</label>
+                  <input type="text" id="user-edit-cpf" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]" required>
+                </div>
+                <div class="mb-4">
+                  <label class="block text-gray-700 font-medium mb-2" for="user-edit-birthDate">Data de Nascimento</label>
+                  <input type="date" id="user-edit-birthDate" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]" required>
+                </div>
+                <div class="mb-4">
+                  <label class="block text-gray-700 font-medium mb-2" for="user-edit-phone">Telefone</label>
+                  <input type="tel" id="user-edit-phone" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]" required>
+                </div>
+              </div>
+              <div class="mb-4">
+                <label class="block text-gray-700 font-medium mb-2" for="user-edit-address">Endereço</label>
+                <input type="text" id="user-edit-address" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]" required>
+              </div>
+              <div class="mb-4">
+                <label class="block text-gray-700 font-medium mb-2" for="user-edit-ip">IP</label>
+                <input type="text" id="user-edit-ip" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]" readonly>
+              </div>
+              <div class="mb-4">
+                <h4 class="text-lg font-bold mb-2">Histórico de Pedidos</h4>
+                <div id="user-orders-history" class="bg-gray-100 p-4 rounded-lg h-32 overflow-y-auto">
+                  <!-- Histórico de pedidos será injetado aqui -->
+                </div>
+              </div>
+              <div class="flex justify-end gap-4 mt-6">
+                <button type="button" id="close-user-modal-btn" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors">Cancelar</button>
+                <button type="submit" class="bg-[#FFC000] text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-yellow-500 transition-colors">Salvar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Modal de Cadastro de Usuário (inicialmente escondido) -->
+        <div id="add-user-modal" class="modal">
+          <div class="modal-content">
+            <h3 class="text-2xl font-bold mb-4">Cadastrar Novo Usuário</h3>
+            <form id="add-user-form">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="mb-4">
+                  <label class="block text-gray-700 font-medium mb-2" for="user-add-fullName">Nome Completo</label>
+                  <input type="text" id="user-add-fullName" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]" required>
+                </div>
+                <div class="mb-4">
+                  <label class="block text-gray-700 font-medium mb-2" for="user-add-email">E-mail</label>
+                  <input type="email" id="user-add-email" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]" required>
+                </div>
+                <div class="mb-4">
+                  <label class="block text-gray-700 font-medium mb-2" for="user-add-cpf">CPF</label>
+                  <input type="text" id="user-add-cpf" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]" required>
+                </div>
+                <div class="mb-4">
+                  <label class="block text-gray-700 font-medium mb-2" for="user-add-birthDate">Data de Nascimento</label>
+                  <input type="date" id="user-add-birthDate" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]" required>
+                </div>
+                <div class="mb-4">
+                  <label class="block text-gray-700 font-medium mb-2" for="user-add-phone">Telefone</label>
+                  <input type="tel" id="user-add-phone" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]" required>
+                </div>
+              </div>
+              <div class="mb-4">
+                <label class="block text-gray-700 font-medium mb-2" for="user-add-address">Endereço</label>
+                <input type="text" id="user-add-address" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]" required>
+              </div>
+              <div class="flex justify-end gap-4 mt-6">
+                <button type="button" id="close-add-user-modal-btn" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors">Cancelar</button>
+                <button type="submit" class="bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors">Cadastrar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-2xl font-bold mb-4">Lista de Usuários</h3>
+          <div class="flex flex-wrap gap-4 mb-6 items-center justify-between">
+            <!-- Campo de busca de usuários -->
+            <input type="text" id="user-search" placeholder="Buscar por Nome, CPF, E-mail ou Telefone..." class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000] flex-1 min-w-[250px]">
+            <button id="add-user-btn" class="bg-[#FFC000] text-gray-800 font-bold py-2 px-4 rounded-lg shadow-md hover:bg-yellow-500 transition-colors">
+              Cadastrar Novo Usuário
+            </button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full bg-white rounded-lg shadow-md">
+              <thead>
+                <tr class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
+                  <th class="py-3 px-6 text-left">Nome Completo</th>
+                  <th class="py-3 px-6 text-left">E-mail</th>
+                  <th class="py-3 px-6 text-left">CPF</th>
+                  <th class="py-3 px-6 text-left">Telefone</th>
+                  <th class="py-3 px-6 text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="users-table-body" class="text-gray-600 text-sm font-light">
+                <!-- Linhas da tabela serão injetadas via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+      // Preenche a tabela inicialmente e adiciona os event listeners
+      updateUsersTable();
+      addUsersEventListeners();
+    };
+
+    // Função para renderizar a página de gerenciamento de pagamentos
+    const renderPaymentsPage = (container) => {
+      let establishmentOptions = establishments.filter(e => e.status === 'Aprovado').map(est => `
+        <option value="${est.name}">${est.name}</option>
+      `).join('');
+
+      container.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <!-- Seção de Pagamento para Estabelecimentos -->
+          <div class="bg-gray-50 p-6 rounded-lg shadow-inner">
+            <h3 class="text-xl font-bold mb-4">Enviar Pagamento para Estabelecimentos</h3>
+            <form id="payment-form">
+              <div class="mb-4">
+                <label class="block text-gray-700 font-medium mb-2" for="establishment">Estabelecimento</label>
+                <select
+                  class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]"
+                  id="establishment"
+                >
+                  ${establishmentOptions}
+                </select>
+              </div>
+              <div class="mb-4">
+                <label class="block text-gray-700 font-medium mb-2" for="amount">Valor (R$)</label>
+                <input
+                  class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]"
+                  type="number"
+                  step="0.01"
+                  id="amount"
+                  placeholder="Ex: 150.00"
+                />
+              </div>
+              <button
+                type="submit"
+                class="w-full bg-[#FFC000] text-gray-800 font-bold py-3 rounded-lg shadow-md hover:bg-yellow-500 transition-colors"
+              >
+                Enviar Pagamento
+              </button>
+            </form>
+          </div>
+
+          <!-- Seção de Reembolso para Clientes -->
+          <div class="bg-gray-50 p-6 rounded-lg shadow-inner">
+            <h3 class="text-xl font-bold mb-4">Reembolsar Clientes</h3>
+            <form id="refund-form">
+              <div class="mb-4">
+                <label class="block text-gray-700 font-medium mb-2" for="client">Nome do Cliente</label>
+                <input
+                  class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]"
+                  type="text"
+                  id="client"
+                  placeholder="Nome do Cliente"
+                />
+              </div>
+              <div class="mb-4">
+                <label class="block text-gray-700 font-medium mb-2" for="refundAmount">Valor do Reembolso (R$)</label>
+                <input
+                  class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFC000]"
+                  type="number"
+                  step="0.01"
+                  id="refundAmount"
+                  placeholder="Ex: 50.00"
+                />
+              </div>
+              <button
+                type="submit"
+                class="w-full bg-red-500 text-white font-bold py-3 rounded-lg shadow-md hover:bg-red-600 transition-colors"
+              >
+                Processar Reembolso
+              </button>
+            </form>
+          </div>
+        </div>
+      `;
+
+      // Adiciona event listeners para os formulários de pagamento e reembolso
+      document.getElementById('payment-form').addEventListener('submit', handleSendPayment);
+      document.getElementById('refund-form').addEventListener('submit', handleRefund);
+    };
+
+    //===========================================================
+    // FUNÇÕES DE LÓGICA DE NEGÓCIO
+    //===========================================================
+
+    // Função para filtrar os estabelecimentos
+    const filterEstablishments = () => {
+      let filtered = establishments;
+
+      // Filtra por código
+      if (currentCodeSearchQuery) {
+        filtered = filtered.filter(e => e.code.toLowerCase().includes(currentCodeSearchQuery.toLowerCase()));
+      }
+
+      // Filtra por nome
+      if (currentSearchQuery) {
+        filtered = filtered.filter(e => e.name.toLowerCase().includes(currentSearchQuery.toLowerCase()));
+      }
+
+      // Filtra por cidade
+      if (currentCityFilter) {
+        filtered = filtered.filter(e => e.city === currentCityFilter);
+      }
+
+      // Filtra por categoria
+      if (currentCategoryFilter) {
+        filtered = filtered.filter(e => e.category === currentCategoryFilter);
+      }
+      
+      return filtered;
+    };
+
+    // Função para atualizar a tabela de estabelecimentos com base nos filtros
+    const updateEstablishmentTable = () => {
+      const tableBody = document.getElementById('establishments-table-body');
+      const filteredEstablishments = filterEstablishments();
+      
+      let tableRows = filteredEstablishments.map(est => `
+        <tr class="border-b border-gray-200 hover:bg-gray-100">
+          <td class="py-3 px-6 text-left whitespace-nowrap">${est.code}</td>
+          <td class="py-3 px-6 text-left">${est.name}</td>
+          <td class="py-3 px-6 text-left">${est.category}</td>
+          <td class="py-3 px-6 text-left">${est.city}</td>
+          <td class="py-3 px-6 text-left">
+            <span class="py-1 px-3 rounded-full text-xs font-semibold ${
+              est.status === 'Aprovado' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'
+            }">
+              ${est.status}
+            </span>
+          </td>
+          <td class="py-3 px-6 text-center">
+            <div class="flex item-center justify-center space-x-2">
+              ${est.status === 'Pendente' ? `
+                <button
+                  data-id="${est.id}"
+                  class="approve-btn bg-green-500 text-white py-1 px-4 rounded-full text-xs font-bold hover:bg-green-600 transition-colors"
+                >
+                  Aprovar
+                </button>
+                <button
+                  data-id="${est.id}"
+                  class="decline-btn bg-red-500 text-white py-1 px-4 rounded-full text-xs font-bold hover:bg-red-600 transition-colors"
+                >
+                  Declinar
+                </button>
+              ` : `
+                <button
+                  data-id="${est.id}"
+                  class="edit-btn bg-blue-500 text-white py-1 px-4 rounded-full text-xs font-bold hover:bg-blue-600 transition-colors"
+                >
+                  Editar
+                </button>
+                <button
+                  data-id="${est.id}"
+                  class="decline-btn bg-red-500 text-white py-1 px-4 rounded-full text-xs font-bold hover:bg-red-600 transition-colors"
+                >
+                  Declinar
+                </button>
+              `}
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      tableBody.innerHTML = tableRows;
+    };
+
+    // Adiciona os event listeners para a página de estabelecimentos
+    const addEstablishmentEventListeners = () => {
+      // Listener para a busca por código
+      document.getElementById('establishment-code-search').addEventListener('input', (e) => {
+        currentCodeSearchQuery = e.target.value;
+        updateEstablishmentTable();
+      });
+
+      document.getElementById('establishment-search').addEventListener('input', (e) => {
+        currentSearchQuery = e.target.value;
+        updateEstablishmentTable();
+      });
+
+      document.getElementById('establishment-city-filter').addEventListener('change', (e) => {
+        currentCityFilter = e.target.value;
+        updateEstablishmentTable();
+      });
+
+      document.getElementById('establishment-category-filter').addEventListener('change', (e) => {
+        currentCategoryFilter = e.target.value;
+        updateEstablishmentTable();
+      });
+
+      document.getElementById('establishments-table-body').addEventListener('click', (e) => {
+        const target = e.target;
+        const id = target.getAttribute('data-id');
+
+        if (target.classList.contains('approve-btn')) {
+          handleApproveEstablishment(id);
+        } else if (target.classList.contains('decline-btn')) {
+          handleDeclineEstablishment(id);
+        } else if (target.classList.contains('edit-btn')) {
+          openEditEstablishmentModal(id);
+        }
+      });
+      
+      document.getElementById('close-establishment-modal-btn').addEventListener('click', closeEditEstablishmentModal);
+      document.getElementById('edit-establishment-form').addEventListener('submit', handleEditEstablishment);
+    };
+
+    // Função para filtrar os usuários
+    const filterUsers = () => {
+      const query = currentUserSearchQuery.toLowerCase();
+      if (!query) return users;
+      return users.filter(user =>
+        user.fullName.toLowerCase().includes(query) ||
+        user.cpf.toLowerCase().includes(query) ||
+        user.phone.replace(/[\s()-]/g, '').includes(query.replace(/[\s()-]/g, '')) || // Remove formatação para a busca
+        user.email.toLowerCase().includes(query)
+      );
+    };
+
+    // Função para atualizar a tabela de usuários com base nos filtros
+    const updateUsersTable = () => {
+      const tableBody = document.getElementById('users-table-body');
+      const filteredUsers = filterUsers();
+
+      let tableRows = filteredUsers.map(user => `
+        <tr class="border-b border-gray-200 hover:bg-gray-100">
+          <td class="py-3 px-6 text-left whitespace-nowrap">${user.fullName}</td>
+          <td class="py-3 px-6 text-left">${user.email}</td>
+          <td class="py-3 px-6 text-left">${user.cpf}</td>
+          <td class="py-3 px-6 text-left">${user.phone}</td>
+          <td class="py-3 px-6 text-center">
+            <div class="flex item-center justify-center flex-wrap gap-2">
+              <button
+                data-id="${user.id}"
+                class="edit-user-btn bg-blue-500 text-white py-1 px-4 rounded-full text-xs font-bold hover:bg-blue-600 transition-colors"
+              >
+                Editar
+              </button>
+              <button
+                data-id="${user.id}"
+                class="send-email-btn bg-yellow-500 text-white py-1 px-4 rounded-full text-xs font-bold hover:bg-yellow-600 transition-colors"
+              >
+                E-mail
+              </button>
+              <button
+                data-id="${user.id}"
+                class="send-sms-btn bg-green-500 text-white py-1 px-4 rounded-full text-xs font-bold hover:bg-green-600 transition-colors"
+              >
+                SMS
+              </button>
+              <button
+                data-id="${user.id}"
+                class="reset-password-btn bg-red-500 text-white py-1 px-4 rounded-full text-xs font-bold hover:bg-red-600 transition-colors"
+              >
+                Reset Senha
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      tableBody.innerHTML = tableRows;
+    };
+
+    // Adiciona os event listeners para a página de usuários
+    const addUsersEventListeners = () => {
+      document.getElementById('user-search').addEventListener('input', (e) => {
+        currentUserSearchQuery = e.target.value;
+        updateUsersTable();
+      });
+      
+      document.getElementById('add-user-btn').addEventListener('click', openAddUserModal);
+
+      document.getElementById('users-table-body').addEventListener('click', (e) => {
+        const target = e.target;
+        const id = target.getAttribute('data-id');
+
+        if (target.classList.contains('edit-user-btn')) {
+          openEditUserModal(id);
+        } else if (target.classList.contains('send-email-btn')) {
+          openSendEmailModal(id);
+        } else if (target.classList.contains('send-sms-btn')) {
+          openSendSmsModal(id);
+        } else if (target.classList.contains('reset-password-btn')) {
+          handlePasswordReset(id);
+        }
+      });
+      
+      document.getElementById('close-user-modal-btn').addEventListener('click', closeEditUserModal);
+      document.getElementById('edit-user-form').addEventListener('submit', handleEditUser);
+
+      document.getElementById('close-add-user-modal-btn').addEventListener('click', closeAddUserModal);
+      document.getElementById('add-user-form').addEventListener('submit', handleAddNewUser);
+
+      document.getElementById('close-email-modal-btn').addEventListener('click', closeSendEmailModal);
+      document.getElementById('send-email-form').addEventListener('submit', handleSendEmail);
+      
+      document.getElementById('close-sms-modal-btn').addEventListener('click', closeSendSmsModal);
+      document.getElementById('send-sms-form').addEventListener('submit', handleSendSms);
+    };
+
+    // Lógica para lidar com o login
+    const handleLogin = (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      if (email === loginCredentials.email && password === loginCredentials.password) {
+        isLoggedIn = true;
+        renderApp();
+      } else {
+        showMessage('E-mail ou senha incorretos.', 'error');
+      }
+    };
+
+    // Lógica para lidar com o logout
+    const handleLogout = () => {
+      isLoggedIn = false;
+      renderApp();
+    };
+
+    // Lógica para mudar a aba do dashboard
+    const switchTab = (tabName) => {
+      activeTab = tabName;
+      renderActiveTab();
+    };
+    
+    // Lógica para abrir o modal de edição de estabelecimento
+    const openEditEstablishmentModal = (id) => {
+      const establishment = establishments.find(e => e.id === id);
+      if (!establishment) return;
+
+      document.getElementById('edit-id').value = establishment.id;
+      document.getElementById('edit-name').value = establishment.name;
+      document.getElementById('edit-category').value = establishment.category;
+      document.getElementById('edit-city').value = establishment.city;
+      document.getElementById('edit-products').value = establishment.products;
+      
+      document.getElementById('edit-establishment-modal').classList.add('show');
+    };
+
+    // Lógica para fechar o modal de edição de estabelecimento
+    const closeEditEstablishmentModal = () => {
+      document.getElementById('edit-establishment-modal').classList.remove('show');
+    };
+
+    // Lógica para abrir o modal de cadastro de usuário
+    const openAddUserModal = () => {
+      document.getElementById('add-user-modal').classList.add('show');
+    };
+
+    // Lógica para fechar o modal de cadastro de usuário
+    const closeAddUserModal = () => {
+      document.getElementById('add-user-modal').classList.remove('show');
+      document.getElementById('add-user-form').reset();
+    };
+
+    // Lógica para abrir o modal de edição de usuário
+    const openEditUserModal = (id) => {
+      const user = users.find(u => u.id === id);
+      if (!user) return;
+
+      document.getElementById('user-edit-id').value = user.id;
+      document.getElementById('user-edit-fullName').value = user.fullName;
+      document.getElementById('user-edit-email').value = user.email;
+      document.getElementById('user-edit-cpf').value = user.cpf;
+      document.getElementById('user-edit-birthDate').value = user.birthDate;
+      document.getElementById('user-edit-phone').value = user.phone;
+      document.getElementById('user-edit-address').value = user.address;
+      document.getElementById('user-edit-ip').value = user.ip;
+
+      const ordersList = document.getElementById('user-orders-history');
+      ordersList.innerHTML = user.ordersHistory.length > 0 ?
+        user.ordersHistory.map(order => `
+          <div class="p-2 border-b border-gray-200 last:border-b-0">
+            <strong>${order.establishmentName}</strong> - ${formatCurrency(order.value)} (${order.date})
+          </div>
+        `).join('')
+        : '<p class="text-gray-500">Nenhum pedido encontrado.</p>';
+      
+      document.getElementById('edit-user-modal').classList.add('show');
+    };
+
+    // Lógica para fechar o modal de edição de usuário
+    const closeEditUserModal = () => {
+      document.getElementById('edit-user-modal').classList.remove('show');
+    };
+
+    // Lógica para abrir o modal de envio de e-mail
+    const openSendEmailModal = (id) => {
+      const user = users.find(u => u.id === id);
+      if (!user) return;
+      document.getElementById('email-recipient-id').value = id;
+      document.getElementById('send-email-modal').classList.add('show');
+    };
+
+    // Lógica para fechar o modal de envio de e-mail
+    const closeSendEmailModal = () => {
+      document.getElementById('send-email-modal').classList.remove('show');
+      document.getElementById('send-email-form').reset();
+    };
+
+    // Lógica para abrir o modal de envio de SMS/WhatsApp
+    const openSendSmsModal = (id) => {
+      const user = users.find(u => u.id === id);
+      if (!user) return;
+      document.getElementById('sms-recipient-id').value = id;
+      document.getElementById('send-sms-modal').classList.add('show');
+    };
+    
+    // Lógica para fechar o modal de envio de SMS/WhatsApp
+    const closeSendSmsModal = () => {
+      document.getElementById('send-sms-modal').classList.remove('show');
+      document.getElementById('send-sms-form').reset();
+    };
+
+    // Lógica para aprovar um estabelecimento
+    const handleApproveEstablishment = (id) => {
+      establishments = establishments.map(est => 
+        est.id === id ? { ...est, status: 'Aprovado' } : est
+      );
+      showMessage(`Estabelecimento aprovado!`);
+      updateEstablishmentTable();
+    };
+    
+    // Lógica para declinar um estabelecimento
+    const handleDeclineEstablishment = (id) => {
+      establishments = establishments.map(est => 
+        est.id === id ? { ...est, status: 'Pendente' } : est
+      );
+      showMessage(`Estabelecimento movido para pendente.`);
+      updateEstablishmentTable();
+    };
+    
+    // Lógica para editar um estabelecimento
+    const handleEditEstablishment = (e) => {
+      e.preventDefault();
+      const id = document.getElementById('edit-id').value;
+      const name = document.getElementById('edit-name').value;
+      const category = document.getElementById('edit-category').value;
+      const city = document.getElementById('edit-city').value;
+      const products = document.getElementById('edit-products').value;
+      
+      establishments = establishments.map(est => 
+        est.id === id ? { ...est, name, category, city, products } : est
+      );
+      
+      showMessage(`Estabelecimento editado com sucesso!`);
+      closeEditEstablishmentModal();
+      updateEstablishmentTable();
+    };
+
+    // Lógica para editar um usuário
+    const handleEditUser = (e) => {
+      e.preventDefault();
+      const id = document.getElementById('user-edit-id').value;
+      const fullName = document.getElementById('user-edit-fullName').value;
+      const email = document.getElementById('user-edit-email').value;
+      const cpf = document.getElementById('user-edit-cpf').value;
+      const birthDate = document.getElementById('user-edit-birthDate').value;
+      const phone = document.getElementById('user-edit-phone').value;
+      const address = document.getElementById('user-edit-address').value;
+
+      users = users.map(user => 
+        user.id === id ? { ...user, fullName, email, cpf, birthDate, phone, address } : user
+      );
+
+      showMessage(`Usuário editado com sucesso!`);
+      closeEditUserModal();
+      updateUsersTable();
+    };
+
+    // Lógica para cadastrar um novo usuário
+    const handleAddNewUser = (e) => {
+      e.preventDefault();
+      const newId = `user_${Date.now()}`;
+      const fullName = document.getElementById('user-add-fullName').value;
+      const email = document.getElementById('user-add-email').value;
+      const cpf = document.getElementById('user-add-cpf').value;
+      const birthDate = document.getElementById('user-add-birthDate').value;
+      const phone = document.getElementById('user-add-phone').value;
+      const address = document.getElementById('user-add-address').value;
+
+      const newUser = {
+        id: newId,
+        fullName,
+        email,
+        cpf,
+        birthDate,
+        address,
+        phone,
+        ip: '127.0.0.1', // IP placeholder
+        ordersHistory: []
+      };
+
+      users.push(newUser);
+      
+      showMessage(`Usuário ${fullName} cadastrado com sucesso!`);
+      closeAddUserModal();
+      updateUsersTable();
+    };
+
+    // Lógica para enviar e-mail
+    const handleSendEmail = (e) => {
+      e.preventDefault();
+      const userId = document.getElementById('email-recipient-id').value;
+      const user = users.find(u => u.id === userId);
+      const subject = document.getElementById('email-subject').value;
+      const body = document.getElementById('email-body').value;
+
+      // Lógica de envio de e-mail (simulada)
+      console.log(`E-mail enviado para ${user.email} com o assunto "${subject}". Conteúdo: "${body}"`);
+      showMessage(`E-mail enviado para ${user.fullName} (${user.email}).`);
+      closeSendEmailModal();
+    };
+
+    // Lógica para enviar SMS/WhatsApp
+    const handleSendSms = (e) => {
+      e.preventDefault();
+      const userId = document.getElementById('sms-recipient-id').value;
+      const user = users.find(u => u.id === userId);
+      const body = document.getElementById('sms-body').value;
+
+      // Lógica de envio de SMS/WhatsApp (simulada)
+      console.log(`SMS/WhatsApp enviado para ${user.phone}. Conteúdo: "${body}"`);
+      showMessage(`SMS/WhatsApp enviado para ${user.fullName} (${user.phone}).`);
+      closeSendSmsModal();
+    };
+
+    // Lógica para resetar a senha do usuário
+    const handlePasswordReset = (id) => {
+      const user = users.find(u => u.id === id);
+      if (!user) return;
+      
+      // Lógica de reset de senha (simulada)
+      console.log(`E-mail de reset de senha enviado para ${user.email}.`);
+      showMessage(`E-mail de reset de senha enviado para ${user.fullName} (${user.email}).`);
+    };
+
+    // Lógica para enviar pagamento
+    const handleSendPayment = (e) => {
+      e.preventDefault();
+      const recipient = e.target.elements.establishment.value;
+      const amount = parseFloat(e.target.elements.amount.value);
+      if (recipient && !isNaN(amount) && amount > 0) {
+        showMessage(`Pagamento de ${formatCurrency(amount)} enviado para ${recipient}.`);
+      } else {
+        showMessage('Por favor, preencha todos os campos corretamente.', 'error');
+      }
+    };
+
+    // Lógica para processar reembolso
+    const handleRefund = (e) => {
+      e.preventDefault();
+      const clientName = e.target.elements.client.value;
+      const refundAmount = parseFloat(e.target.elements.refundAmount.value);
+      if (clientName && !isNaN(refundAmount) && refundAmount > 0) {
+        showMessage(`Reembolso de ${formatCurrency(refundAmount)} processado para o cliente ${clientName}.`);
+      } else {
+        showMessage('Por favor, preencha todos os campos corretamente.', 'error');
+      }
+    };
+
+    //===========================================================
+    // FUNÇÃO INICIAL
+    //===========================================================
+
+    // Função que decide qual página renderizar
+    const renderApp = () => {
+      if (isLoggedIn) {
+        renderDashboard();
+      } else {
+        renderLoginPage();
+      }
+    };
+
+    // Inicia a aplicação quando a janela é carregada
+    window.onload = renderApp;
+  </script>
+
+</body>
+</html>
